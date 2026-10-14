@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aiassist
+      POSTGRES_USER: aiassist
+      POSTGRES_PASSWORD: aiassist
+    ports: ["5433:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+
+  redis:
+    image: redis:7.4-alpine
+    ports: ["6380:6379"]
+
+  url-shortener:
+    build:
+      context: .
+      dockerfile: Dockerfile.url-shortener
+    environment:
+      SPRING_PROFILES_ACTIVE: scalable
+      URL_DB_URL: jdbc:postgresql://postgres:5432/aiassist?currentSchema=url_shortener
+      URL_DB_USER: aiassist
+      URL_DB_PASSWORD: aiassist
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SHORT_URL_BASE_URL: http://localhost:8082/r
+      SHORT_URL_CACHE_ENABLED: "true"
+      APP_INSTANCE_ID: docker-single
+    ports: ["8082:8082"]
+    depends_on: [postgres, redis]
+
+volumes:
+  postgres-data:

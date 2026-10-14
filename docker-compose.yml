@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aiassist
+      POSTGRES_USER: aiassist
+      POSTGRES_PASSWORD: aiassist
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiassist -d aiassist"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app1:
+    build:
+      context: .
+      dockerfile: Dockerfile.url-shortener
+    environment: &app-env
+      SPRING_PROFILES_ACTIVE: scalable
+      URL_DB_URL: jdbc:postgresql://postgres:5432/aiassist?currentSchema=url_shortener
+      URL_DB_USER: aiassist
+      URL_DB_PASSWORD: aiassist
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      SHORT_URL_BASE_URL: http://localhost:8080/r
+      SHORT_URL_CACHE_ENABLED: "true"
+      APP_INSTANCE_ID: app-1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  app2:
+    build:
+      context: .
+      dockerfile: Dockerfile.url-shortener
+    environment:
+      <<: *app-env
+      APP_INSTANCE_ID: app-2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app1
+      - app2
+
+volumes:
+  postgres-data:

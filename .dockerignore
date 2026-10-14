@@ -1,0 +1,9 @@
+.git
+.github
+target
+**/target
+.idea
+*.iml
+*.zip
+.env
+workspaces
